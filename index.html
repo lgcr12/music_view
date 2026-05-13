@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lyric Veil</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <main class="stage" id="stage">
+      <video
+        class="background-video"
+        id="backgroundVideo"
+        aria-hidden="true"
+        autoplay
+        muted
+        loop
+        playsinline
+      ></video>
+      <img class="background-image" id="backgroundImage" alt="" aria-hidden="true" />
+      <canvas class="visual-canvas" id="visualCanvas" aria-hidden="true"></canvas>
+      <div class="ambient"></div>
+      <div class="background-veil" id="backgroundVeil" aria-hidden="true"></div>
+
+      <section class="lyrics">
+        <p class="song-meta" id="songMeta">Lyric Veil</p>
+        <div class="lyric-switcher" id="lyricSwitcher">
+          <h1 class="current-line" data-lyric-slot="0"></h1>
+          <h1 class="current-line" data-lyric-slot="1"></h1>
+        </div>
+        <p class="sr-only" id="currentLineLive" aria-live="polite"></p>
+        <div class="line-stack" id="lineStack"></div>
+      </section>
+
+      <aside class="control-panel" id="controlPanel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Fullscreen Lyrics</p>
+            <h2>歌词幕布</h2>
+          </div>
+          <button class="icon-button" id="togglePanel" type="button" aria-label="收起面板">-</button>
+        </div>
+
+        <header class="track-info">
+          <div class="cover-art" aria-hidden="true">LV</div>
+          <div class="metadata">
+            <input id="songTitle" class="minimal-input title" value="未命名歌曲" aria-label="歌曲" />
+            <input id="artistName" class="minimal-input artist" value="等待播放" aria-label="艺人" />
+          </div>
+        </header>
+
+        <nav class="action-bar" aria-label="歌词同步操作">
+          <button id="syncQQMusic" class="hidden-action" type="button" title="读取 QQ 音乐">QQ</button>
+          <button id="followQQMusic" class="hidden-action" type="button" title="跟随播放">跟随</button>
+          <button id="autoLyrics" class="hidden-action" type="button" title="自动查找 LRC">LRC</button>
+          <button id="searchAigeci" type="button" title="打开爱歌词搜索">歌词站</button>
+        </nav>
+
+        <div class="status-box" id="statusBox" data-status-kind="idle">
+          <span class="status-pill" id="statusPill">待命</span>
+          <p class="status-line" id="syncStatus">读取歌曲、自动找词和背景导入状态会显示在这里。</p>
+        </div>
+
+        <div class="toolbar">
+          <button id="playPause" type="button">播放</button>
+          <button id="fullscreen" type="button">全屏</button>
+          <button id="presentationMode" type="button">演出</button>
+          <button id="reset" type="button">重置</button>
+        </div>
+
+        <details class="settings-group">
+          <summary>显示设置</summary>
+          <div class="sliders">
+            <label>
+              背景模式
+              <select id="backgroundMode">
+                <option value="scene">场景生成</option>
+                <option value="video">真实媒体</option>
+              </select>
+            </label>
+            <label>
+              背景视频 / GIF
+              <input
+                id="videoFile"
+                class="file-input"
+                type="file"
+                accept="video/mp4,video/webm,video/quicktime,image/gif,.gif"
+              />
+            </label>
+            <label>
+              视觉风格
+              <select id="visualStyle">
+                <option value="whale">海洋鲸跃</option>
+                <option value="fireworks">湖岸烟花</option>
+                <option value="aurora">雪原极光</option>
+                <option value="stars">深空星河</option>
+                <option value="rain">雨夜窗景</option>
+              </select>
+            </label>
+            <label>
+              <span class="label-row">
+                动态强度
+                <output id="visualIntensityValue">70%</output>
+              </span>
+              <input id="visualIntensity" type="range" min="0" max="100" value="70" />
+            </label>
+            <label>
+              <span class="label-row">
+                背景亮度
+                <output id="backgroundBrightnessValue">78%</output>
+              </span>
+              <input id="backgroundBrightness" type="range" min="35" max="120" value="78" />
+            </label>
+            <label>
+              <span class="label-row">
+                背景模糊
+                <output id="backgroundBlurValue">0px</output>
+              </span>
+              <input id="backgroundBlur" type="range" min="0" max="24" value="0" />
+            </label>
+            <label>
+              <span class="label-row">
+                暗罩强度
+                <output id="backgroundDimValue">38%</output>
+              </span>
+              <input id="backgroundDim" type="range" min="0" max="85" value="38" />
+            </label>
+            <label>
+              字号
+              <input id="fontSize" type="range" min="48" max="132" value="72" />
+            </label>
+            <label>
+              <span class="label-row">
+                歌词偏移
+                <output id="offsetValue">+0.80s</output>
+              </span>
+              <input id="offset" type="range" min="-30000" max="30000" step="100" value="800" />
+            </label>
+            <div class="offset-tools">
+              <button id="lyricsEarlier" type="button">提前</button>
+              <button id="lyricsLater" type="button">延后</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="lrc-editor-wrapper">
+          <summary>LRC 源码</summary>
+          <input id="lrcFile" class="file-input" type="file" accept=".lrc,text/plain" />
+          <textarea id="lrcInput" spellcheck="false">[00:00.00]把歌词放到这里
+[00:04.00]一行一行浮现
+[00:08.00]像光落在安静的房间
+[00:13.00]按播放，让它覆盖整个屏幕</textarea>
+        </details>
+      </aside>
+
+      <button class="floating-button" id="showPanel" type="button">设置</button>
+    </main>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
