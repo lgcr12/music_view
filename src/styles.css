@@ -179,14 +179,14 @@ button {
 }
 
 .lyrics {
-  align-items: center;
+  align-items: start;
   display: grid;
   gap: 0;
-  grid-template-rows: minmax(56px, auto) clamp(180px, 23vh, 260px) clamp(88px, 11vh, 132px);
+  grid-template-rows: minmax(44px, auto) clamp(168px, 21vh, 238px) clamp(96px, 12vh, 140px);
   justify-self: center;
-  margin-top: clamp(18px, 5vh, 70px);
-  min-height: min(64vh, 760px);
-  padding: clamp(18px, 3.6vw, 42px);
+  margin-top: clamp(0px, 2.2vh, 34px);
+  min-height: min(56vh, 660px);
+  padding: clamp(10px, 2.6vw, 30px);
   width: min(1320px, 92vw);
   text-align: center;
   position: relative;
@@ -298,7 +298,7 @@ button {
   display: grid;
   gap: 13px;
   justify-self: start;
-  margin: 0 0 clamp(24px, 4vw, 42px);
+  margin: 0 0 clamp(8px, 1.6vw, 22px);
   max-width: min(76vw, 720px);
   min-height: 68px;
   overflow: visible;
@@ -396,7 +396,7 @@ button {
 
 .lyric-switcher {
   display: grid;
-  height: clamp(190px, 24vh, 280px);
+  height: clamp(168px, 21vh, 238px);
   overflow: hidden;
   place-items: center;
   position: relative;
@@ -694,7 +694,7 @@ button {
 .line-stack {
   display: grid;
   gap: 10px;
-  height: clamp(84px, 10vh, 128px);
+  height: clamp(92px, 12vh, 140px);
   margin-top: 0;
   overflow: hidden;
   place-items: start center;
@@ -1211,10 +1211,10 @@ input[type="range"] {
   }
 
   .lyrics {
-    grid-template-rows: minmax(48px, auto) minmax(170px, 38dvh) minmax(78px, 15dvh);
-    margin-top: clamp(10px, 3dvh, 28px);
-    min-height: 70dvh;
-    padding: 18px 6px;
+    grid-template-rows: minmax(38px, auto) minmax(150px, 33dvh) minmax(82px, 16dvh);
+    margin-top: 0;
+    min-height: 62dvh;
+    padding: 8px 6px;
     width: min(94vw, 720px);
   }
 
