@@ -28,6 +28,12 @@
       <div class="background-veil" id="backgroundVeil" aria-hidden="true"></div>
 
       <section class="lyrics" aria-label="歌词舞台">
+        <div class="empty-state" id="emptyState" aria-hidden="true">
+          <span class="empty-orbit"></span>
+          <p class="empty-kicker">Lyric Veil</p>
+          <strong id="emptyTitle">等待 QQ 音乐</strong>
+          <span id="emptyHint">播放一首歌，歌词舞台会自动跟随。</span>
+        </div>
         <p class="song-meta" id="songMeta">Lyric Veil</p>
         <div class="lyric-switcher" id="lyricSwitcher">
           <h1 class="current-line" data-lyric-slot="0"></h1>
@@ -153,6 +159,15 @@
                 <option value="fade">整句淡入</option>
                 <option value="typewriter">打字机</option>
                 <option value="rise">轻微上浮</option>
+              </select>
+            </label>
+            <label>
+              字体风格
+              <select id="fontStyle">
+                <option value="cinema">电影宋体</option>
+                <option value="modern">现代黑体</option>
+                <option value="soft">治愈圆体</option>
+                <option value="youth">青春手写</option>
               </select>
             </label>
             <label>

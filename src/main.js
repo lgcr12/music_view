@@ -20,6 +20,9 @@ const els = {
   lyricSlots: [...document.querySelectorAll("[data-lyric-slot]")],
   currentLineLive: document.querySelector("#currentLineLive"),
   lineStack: document.querySelector("#lineStack"),
+  emptyState: document.querySelector("#emptyState"),
+  emptyTitle: document.querySelector("#emptyTitle"),
+  emptyHint: document.querySelector("#emptyHint"),
   statusBox: document.querySelector("#statusBox"),
   statusPill: document.querySelector("#statusPill"),
   remoteUrl: document.querySelector("#remoteUrl"),
@@ -32,6 +35,7 @@ const els = {
   videoFile: document.querySelector("#videoFile"),
   visualStyle: document.querySelector("#visualStyle"),
   lyricEffect: document.querySelector("#lyricEffect"),
+  fontStyle: document.querySelector("#fontStyle"),
   karaokeColor: document.querySelector("#karaokeColor"),
   visualIntensity: document.querySelector("#visualIntensity"),
   visualIntensityValue: document.querySelector("#visualIntensityValue"),
@@ -80,6 +84,7 @@ let startupDone = false;
 let lyricsSaveTimerId = 0;
 let presentationModeEnabled = false;
 let panelHideTimerId = 0;
+let emptyStateKind = "waiting";
 
 const LYRICS_CACHE_STORAGE_KEY = "lyric-veil:lrc-cache:v1";
 const UI_SETTINGS_STORAGE_KEY = "lyric-veil:ui-settings:v1";
@@ -111,6 +116,45 @@ function setStatus(kind, text, label = "") {
 
 function setStageCssVar(name, value) {
   document.documentElement.style.setProperty(name, value);
+}
+
+function setPlaybackVisualState() {
+  const hasTrack = Boolean((currentTrack?.title || els.songTitle.value || "").trim());
+  els.stage.dataset.playback = playing || followQQMusic ? "playing" : "idle";
+  els.stage.dataset.hasTrack = hasTrack ? "true" : "false";
+}
+
+function setEmptyState(kind, title, hint) {
+  emptyStateKind = kind;
+  if (!els.emptyState) return;
+  els.emptyState.dataset.kind = kind;
+  els.emptyTitle.textContent = title;
+  els.emptyHint.textContent = hint;
+}
+
+function hasPlaceholderLyrics() {
+  return /把歌词放到这里|一行一行浮现|像光落在安静的房间/.test(els.lrcInput.value);
+}
+
+function updateEmptyState() {
+  if (!els.emptyState) return;
+
+  const hasUsableLines = lines.some((line) => line.text?.trim()) && !hasPlaceholderLyrics();
+  const hasTrack = Boolean((currentTrack?.title || els.songTitle.value || "").trim() && els.songTitle.value !== "未命名歌曲");
+  const shouldShow = lyricsLoading || !hasTrack || !hasUsableLines;
+  els.stage.dataset.empty = shouldShow ? "true" : "false";
+
+  if (lyricsLoading) {
+    setEmptyState("loading", "正在匹配歌词", "优先查找本地歌词，找不到再尝试在线来源。");
+  } else if (!hasTrack) {
+    setEmptyState("waiting", "等待 QQ 音乐", "播放一首歌，歌词舞台会自动跟随。");
+  } else if (!hasUsableLines) {
+    setEmptyState("lyrics", "还没有可用歌词", "点击 LRC 自动匹配，或导入本地 .lrc 文件。");
+  } else {
+    emptyStateKind = "ready";
+  }
+
+  setPlaybackVisualState();
 }
 
 async function loadNetworkAccessInfo() {
@@ -180,6 +224,7 @@ function readUiSettings() {
 function saveUiSettings() {
   const settings = {
     lyricEffect: els.lyricEffect.value,
+    fontStyle: els.fontStyle.value,
     visualIntensity: els.visualIntensity.value,
     backgroundBrightness: els.backgroundBrightness.value,
     backgroundBlur: els.backgroundBlur.value,
@@ -199,6 +244,7 @@ function applyUiSettings() {
   const settings = readUiSettings();
   const pairs = [
     ["lyricEffect", els.lyricEffect],
+    ["fontStyle", els.fontStyle],
     ["visualIntensity", els.visualIntensity],
     ["backgroundBrightness", els.backgroundBrightness],
     ["backgroundBlur", els.backgroundBlur],
@@ -228,7 +274,8 @@ function applyPreset(name) {
       karaokeColor: "gold",
       lyricStroke: "1.0",
       lyricShadow: "84",
-      lyricEffect: "fade"
+      lyricEffect: "fade",
+      fontStyle: "cinema"
     },
     stage: {
       backgroundBrightness: "78",
@@ -237,7 +284,8 @@ function applyPreset(name) {
       karaokeColor: "gold",
       lyricStroke: "1.4",
       lyricShadow: "100",
-      lyricEffect: "typewriter"
+      lyricEffect: "typewriter",
+      fontStyle: "modern"
     },
     soft: {
       backgroundBrightness: "96",
@@ -246,7 +294,8 @@ function applyPreset(name) {
       karaokeColor: "cyan",
       lyricStroke: "0.5",
       lyricShadow: "68",
-      lyricEffect: "rise"
+      lyricEffect: "rise",
+      fontStyle: "soft"
     }
   };
 
@@ -260,6 +309,7 @@ function applyPreset(name) {
   });
 
   syncLyricEffect();
+  syncFontStyle();
   syncVisualIntensityValue();
   syncBackgroundBrightnessValue();
   syncBackgroundBlurValue();
@@ -1316,6 +1366,7 @@ function loadLyrics() {
   renderedLineIndex = -1;
   renderLine(0);
   syncMeta();
+  updateEmptyState();
 }
 
 function play() {
@@ -1329,6 +1380,7 @@ function play() {
   startedAt = performance.now() - pausedAt;
   playing = true;
   els.playPause.textContent = "暂停";
+  setPlaybackVisualState();
   cancelAnimationFrame(frameId);
   tick();
 }
@@ -1337,6 +1389,7 @@ function pause() {
   pausedAt = playbackTime();
   playing = false;
   els.playPause.textContent = "播放";
+  setPlaybackVisualState();
   cancelAnimationFrame(frameId);
 }
 
@@ -1361,6 +1414,7 @@ async function syncQQMusic() {
 
     if (track.title) {
       applyTrack(track);
+      updateEmptyState();
       setStatus("success", `Detected track: ${track.title}${track.artist ? ` / ${track.artist}` : ""}`, "Detected");
       return;
     }
@@ -1389,6 +1443,7 @@ function applyTrack(track) {
       ? track.playbackRate
       : 1;
     playing = track.playing !== false;
+    setPlaybackVisualState();
     const index = findLineIndex(currentTime());
     if (index >= 0 && index !== renderedLineIndex) renderLine(index);
   }
@@ -1399,6 +1454,7 @@ function applyTrack(track) {
   const state = track.playing === false ? "Paused" : "Playing";
   const cacheHint = cachedLyrics ? " | Cached lyrics loaded" : "";
   setStatus("success", `${state}: ${track.raw || track.title}${progress}${cacheHint}`, followQQMusic ? "Following" : "Synced");
+  updateEmptyState();
 
   if (followQQMusic && nextKey !== previousKey && !cachedLyrics) {
     fetchLyricsForCurrentTrack(track);
@@ -1527,6 +1583,13 @@ function syncLyricEffect() {
   }
 }
 
+function syncFontStyle() {
+  els.stage.dataset.fontStyle = els.fontStyle.value;
+  if (renderedLineIndex >= 0) {
+    fitCurrentLine();
+  }
+}
+
 function syncBackgroundMode() {
   els.stage.dataset.backgroundMode = els.backgroundMode.value;
   if (els.backgroundMode.value === "video") {
@@ -1607,6 +1670,7 @@ async function fetchLyricsForCurrentTrack(track = currentTrack) {
   }
 
   lyricsLoading = true;
+  updateEmptyState();
   lastLyricsKey = key;
   els.autoLyrics.classList.add("active");
 
@@ -1680,6 +1744,7 @@ async function fetchLyricsForCurrentTrack(track = currentTrack) {
   } finally {
     lyricsLoading = false;
     els.autoLyrics.classList.remove("active");
+    updateEmptyState();
   }
 }
 
@@ -1700,6 +1765,7 @@ function toggleQQFollow() {
   if (!followQQMusic) pause();
 
   followQQMusic = !followQQMusic;
+  setPlaybackVisualState();
   els.followQQMusic?.classList.toggle("active", followQQMusic);
   if (els.followQQMusic) {
     els.followQQMusic.textContent = followQQMusic ? "Stop Following" : "Follow";
@@ -1719,6 +1785,7 @@ function toggleQQFollow() {
   setStatus("idle", "Follow mode stopped.", "Idle");
   window.clearInterval(followTimerId);
   playing = false;
+  setPlaybackVisualState();
   cancelAnimationFrame(frameId);
 }
 
@@ -1800,6 +1867,7 @@ els.lyricsEarlier.addEventListener("click", () => adjustLyricsOffset(300));
 els.lyricsLater.addEventListener("click", () => adjustLyricsOffset(-300));
 els.visualIntensity.addEventListener("input", syncVisualIntensityValue);
 els.lyricEffect.addEventListener("change", syncLyricEffect);
+els.fontStyle.addEventListener("change", syncFontStyle);
 els.backgroundBrightness.addEventListener("input", syncBackgroundBrightnessValue);
 els.backgroundBlur.addEventListener("input", syncBackgroundBlurValue);
 els.backgroundDim.addEventListener("input", syncBackgroundDimValue);
@@ -1842,6 +1910,7 @@ document.addEventListener("keydown", (event) => {
 
 [
   els.lyricEffect,
+  els.fontStyle,
   els.visualIntensity,
   els.backgroundBrightness,
   els.backgroundBlur,
@@ -1864,6 +1933,7 @@ loadLyrics();
 syncOffsetValue();
 syncVisualIntensityValue();
 syncLyricEffect();
+syncFontStyle();
 syncBackgroundBrightnessValue();
 syncBackgroundBlurValue();
 syncBackgroundDimValue();
@@ -1872,6 +1942,7 @@ syncLyricStrokeValue();
 syncLyricShadowValue();
 syncSceneMode();
 syncBackgroundMode();
+updateEmptyState();
 restoreBackgroundVideo();
 createParticles();
 drawVisual();

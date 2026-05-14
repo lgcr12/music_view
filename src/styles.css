@@ -14,6 +14,8 @@
   --lyric-shadow-strength: 0.82;
   --karaoke-color: #ffd978;
   --karaoke-glow: rgba(255, 216, 120, 0.3);
+  --motion-energy: 0.24;
+  --stage-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 * {
@@ -50,6 +52,11 @@ button {
   place-items: center;
   padding: max(40px, env(safe-area-inset-top)) max(40px, env(safe-area-inset-right)) max(40px, env(safe-area-inset-bottom)) max(40px, env(safe-area-inset-left));
   isolation: isolate;
+  transition: filter 500ms var(--stage-ease);
+}
+
+.stage[data-playback="playing"] {
+  --motion-energy: 1;
 }
 
 .stage.presentation-mode {
@@ -71,10 +78,14 @@ button {
   opacity: 0;
   pointer-events: none;
   position: absolute;
-  transition: opacity 220ms ease;
+  transition:
+    filter 700ms var(--stage-ease),
+    opacity 420ms var(--stage-ease),
+    transform 900ms var(--stage-ease);
   width: 100%;
   z-index: -4;
   filter: brightness(var(--background-brightness)) blur(var(--background-blur));
+  transform: scale(calc(1.012 + var(--motion-energy) * 0.012));
 }
 
 .background-image {
@@ -84,10 +95,14 @@ button {
   opacity: 0;
   pointer-events: none;
   position: absolute;
-  transition: opacity 220ms ease;
+  transition:
+    filter 700ms var(--stage-ease),
+    opacity 420ms var(--stage-ease),
+    transform 900ms var(--stage-ease);
   width: 100%;
   z-index: -4;
   filter: brightness(var(--background-brightness)) blur(var(--background-blur));
+  transform: scale(calc(1.012 + var(--motion-energy) * 0.012));
 }
 
 .background-veil {
@@ -96,6 +111,7 @@ button {
   z-index: -1;
   pointer-events: none;
   background: rgba(6, 9, 14, var(--background-dim));
+  transition: background 700ms var(--stage-ease), opacity 700ms var(--stage-ease);
 }
 
 .stage[data-background-mode="video"] .background-video {
@@ -120,6 +136,11 @@ button {
     radial-gradient(circle at 78% 80%, rgba(96, 132, 155, 0.12), transparent 34%),
     linear-gradient(145deg, #090a0d 0%, #15151a 48%, #07080a 100%);
   filter: brightness(var(--background-brightness)) blur(calc(var(--background-blur) * 0.35));
+  transform: scale(calc(1 + var(--motion-energy) * 0.012));
+  transition:
+    filter 700ms var(--stage-ease),
+    opacity 700ms var(--stage-ease),
+    transform 900ms var(--stage-ease);
 }
 
 .ambient::after {
@@ -129,6 +150,32 @@ button {
   background-image: linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px);
   background-size: 100% 7px;
   opacity: 0.2;
+  animation: ambient-drift 18s linear infinite;
+  animation-play-state: paused;
+}
+
+.stage[data-playback="playing"] .ambient::after {
+  animation-play-state: running;
+}
+
+.stage[data-playback="playing"] .ambient {
+  filter: brightness(calc(var(--background-brightness) * 1.05)) saturate(1.08) blur(calc(var(--background-blur) * 0.35));
+}
+
+.stage[data-playback="idle"] .background-video,
+.stage[data-playback="idle"] .background-image,
+.stage[data-playback="idle"] .ambient {
+  filter: brightness(calc(var(--background-brightness) * 0.9)) saturate(0.86) blur(var(--background-blur));
+}
+
+@keyframes ambient-drift {
+  from {
+    transform: translateY(0);
+  }
+
+  to {
+    transform: translateY(7px);
+  }
 }
 
 .lyrics {
@@ -141,6 +188,100 @@ button {
   padding: clamp(28px, 5vw, 54px);
   width: min(1320px, 92vw);
   text-align: center;
+  position: relative;
+}
+
+.empty-state {
+  align-content: center;
+  display: grid;
+  grid-area: 1 / 1 / 4 / 2;
+  justify-items: center;
+  min-height: min(54vh, 560px);
+  opacity: 0;
+  pointer-events: none;
+  position: relative;
+  transform: translateY(10px) scale(0.98);
+  transition:
+    filter 520ms var(--stage-ease),
+    opacity 520ms var(--stage-ease),
+    transform 520ms var(--stage-ease);
+  z-index: 4;
+}
+
+.stage[data-empty="true"] .empty-state {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.stage[data-empty="true"] .song-meta,
+.stage[data-empty="true"] .lyric-switcher,
+.stage[data-empty="true"] .line-stack {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.empty-orbit {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  box-shadow:
+    inset 0 0 34px rgba(255, 255, 255, 0.05),
+    0 0 80px rgba(255, 217, 120, 0.13);
+  height: clamp(96px, 16vw, 168px);
+  margin-bottom: 26px;
+  position: relative;
+  width: clamp(96px, 16vw, 168px);
+}
+
+.empty-orbit::before,
+.empty-orbit::after {
+  border-radius: inherit;
+  content: "";
+  position: absolute;
+}
+
+.empty-orbit::before {
+  background: conic-gradient(from 30deg, transparent, rgba(255, 217, 120, 0.92), transparent 38%);
+  inset: -2px;
+  mask: radial-gradient(circle, transparent 58%, #000 60%);
+  animation: orbit-spin 4.8s linear infinite;
+}
+
+.empty-orbit::after {
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.34), rgba(255, 217, 120, 0.08) 48%, transparent 68%);
+  inset: 18%;
+}
+
+.empty-kicker {
+  color: rgba(255, 255, 255, 0.46);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.42em;
+  margin: 0 0 12px;
+  text-indent: 0.42em;
+  text-transform: uppercase;
+}
+
+.empty-state strong {
+  color: rgba(255, 255, 255, 0.92);
+  font-family: "Songti SC", "Source Han Serif SC", Georgia, serif;
+  font-size: clamp(34px, 5.2vw, 74px);
+  font-weight: 300;
+  letter-spacing: 0.08em;
+  line-height: 1.06;
+  text-shadow: 0 18px 52px rgba(0, 0, 0, 0.42);
+}
+
+.empty-state > span:last-child {
+  color: rgba(255, 255, 255, 0.56);
+  font-size: clamp(14px, 1.6vw, 18px);
+  line-height: 1.7;
+  margin-top: 16px;
+}
+
+@keyframes orbit-spin {
+  to {
+    transform: rotate(1turn);
+  }
 }
 
 .stage[data-scene="whale"] .lyrics {
@@ -167,6 +308,9 @@ button {
     0 4px 10px rgba(4, 10, 16, 0.2),
     0 18px 42px rgba(4, 10, 16, 0.14);
   z-index: 2;
+  transition:
+    opacity 520ms var(--stage-ease),
+    transform 520ms var(--stage-ease);
 }
 
 .song-meta.reveal {
@@ -256,6 +400,9 @@ button {
   place-items: center;
   position: relative;
   width: 100%;
+  transition:
+    opacity 520ms var(--stage-ease),
+    transform 520ms var(--stage-ease);
 }
 
 .lyric-switcher::before {
@@ -269,7 +416,7 @@ button {
 }
 
 .current-line {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--lyric-font, Georgia, "Times New Roman", serif);
   font-size: clamp(46px, 7vw, var(--lyric-size));
   font-weight: 500;
   grid-area: 1 / 1;
@@ -297,6 +444,51 @@ button {
     0 18px 54px rgba(0, 0, 0, calc(0.62 * var(--lyric-shadow-strength))),
     -0.7px 0 rgba(255, 90, 90, calc(0.14 * var(--lyric-shadow-strength))),
     0.7px 0 rgba(80, 230, 255, calc(0.12 * var(--lyric-shadow-strength)));
+}
+
+.stage[data-font-style="cinema"] {
+  --lyric-font: "Songti SC", "Source Han Serif SC", "Noto Serif CJK SC", Georgia, serif;
+  --title-font: "Songti SC", "Source Han Serif SC", Georgia, serif;
+  --lyric-tracking: 0.05em;
+}
+
+.stage[data-font-style="modern"] {
+  --lyric-font: "HarmonyOS Sans SC", "Microsoft YaHei UI", "PingFang SC", sans-serif;
+  --title-font: "HarmonyOS Sans SC", "Microsoft YaHei UI", "PingFang SC", sans-serif;
+  --lyric-tracking: 0.01em;
+}
+
+.stage[data-font-style="soft"] {
+  --lyric-font: "TsangerYuYangT W05", "HYRunYuan", "YouYuan", "PingFang SC", sans-serif;
+  --title-font: "TsangerYuYangT W05", "HYRunYuan", "PingFang SC", sans-serif;
+  --lyric-tracking: 0.03em;
+}
+
+.stage[data-font-style="youth"] {
+  --lyric-font: "KaiTi", "STKaiti", "FZKai-Z03", "Songti SC", serif;
+  --title-font: "KaiTi", "STKaiti", "Songti SC", serif;
+  --lyric-tracking: 0.04em;
+}
+
+.stage[data-font-style] .current-line {
+  letter-spacing: var(--lyric-tracking);
+}
+
+.stage[data-font-style] .meta-title,
+.stage[data-font-style] .empty-state strong {
+  font-family: var(--title-font);
+}
+
+.stage[data-font-style="modern"] .current-line {
+  font-weight: 720;
+}
+
+.stage[data-font-style="soft"] .current-line {
+  font-weight: 560;
+}
+
+.stage[data-font-style="youth"] .current-line {
+  font-weight: 500;
 }
 
 .lyric-layer {
@@ -506,12 +698,15 @@ button {
   overflow: hidden;
   place-items: start center;
   width: 100%;
+  transition:
+    opacity 520ms var(--stage-ease),
+    transform 520ms var(--stage-ease);
 }
 
 .ghost-line {
   color: rgba(255, 255, 255, 0.42);
   display: block;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--lyric-font, Georgia, "Times New Roman", serif);
   font-size: clamp(28px, 4.2vw, 48px);
   line-height: 1.16;
   margin: 0 auto;
@@ -668,6 +863,11 @@ input {
 select {
   min-height: 34px;
   padding: 0 12px;
+}
+
+.font-style-grid {
+  display: grid;
+  gap: 8px;
 }
 
 textarea {
