@@ -22,6 +22,8 @@ const els = {
   lineStack: document.querySelector("#lineStack"),
   statusBox: document.querySelector("#statusBox"),
   statusPill: document.querySelector("#statusPill"),
+  remoteUrl: document.querySelector("#remoteUrl"),
+  copyRemoteUrl: document.querySelector("#copyRemoteUrl"),
   playPause: document.querySelector("#playPause"),
   fullscreen: document.querySelector("#fullscreen"),
   presentationMode: document.querySelector("#presentationMode"),
@@ -109,6 +111,42 @@ function setStatus(kind, text, label = "") {
 
 function setStageCssVar(name, value) {
   document.documentElement.style.setProperty(name, value);
+}
+
+async function loadNetworkAccessInfo() {
+  if (!els.remoteUrl) return;
+
+  try {
+    const response = await fetch("/api/network");
+    const info = await response.json();
+    const url = info?.preferred?.url || info?.local || window.location.origin;
+    els.remoteUrl.textContent = url;
+    els.remoteUrl.dataset.url = url;
+    if (els.copyRemoteUrl) {
+      els.copyRemoteUrl.disabled = false;
+    }
+  } catch {
+    const fallback = window.location.origin;
+    els.remoteUrl.textContent = fallback;
+    els.remoteUrl.dataset.url = fallback;
+  }
+}
+
+async function copyRemoteAccessUrl() {
+  const url = els.remoteUrl?.dataset.url || els.remoteUrl?.textContent?.trim();
+  if (!url || !els.copyRemoteUrl) return;
+
+  try {
+    await navigator.clipboard.writeText(url);
+    els.copyRemoteUrl.textContent = "已复制";
+    setStatus("success", `已复制投屏访问地址：${url}`, "投屏");
+  } catch {
+    window.prompt("复制这个地址到手机浏览器打开：", url);
+  } finally {
+    window.setTimeout(() => {
+      els.copyRemoteUrl.textContent = "复制";
+    }, 1400);
+  }
 }
 
 function ensureGhostLine() {
@@ -1464,16 +1502,16 @@ function setPresentationMode(enabled) {
   presentationModeEnabled = enabled;
   els.stage.classList.toggle("presentation-mode", enabled);
   els.presentationMode.classList.toggle("active", enabled);
-  els.presentationMode.textContent = enabled ? "Exit Stage" : "Stage";
+  els.presentationMode.textContent = enabled ? "退出" : "演出";
   if (enabled) {
     scheduleAutoHidePanel(1200);
-    setStatus("success", "Stage mode enabled. The panel will hide when the mouse stays still.", "Stage");
+    setStatus("success", "演出模式已开启。鼠标静止后面板会自动隐藏。", "演出");
     return;
   }
 
   window.clearTimeout(panelHideTimerId);
   showPanelForStage();
-  setStatus("idle", "Stage mode disabled.", "Idle");
+  setStatus("idle", "演出模式已关闭。", "待命");
 }
 
 function syncSceneMode() {
@@ -1737,6 +1775,7 @@ els.fullscreen.addEventListener("click", () => {
 
 els.togglePanel.addEventListener("click", () => togglePanel(true));
 els.showPanel.addEventListener("click", () => togglePanel(false));
+els.copyRemoteUrl?.addEventListener("click", copyRemoteAccessUrl);
 document.querySelectorAll("[data-preset]").forEach((button) => {
   button.addEventListener("click", () => applyPreset(button.dataset.preset));
 });
@@ -1820,6 +1859,7 @@ document.addEventListener("keydown", (event) => {
 });
 
 applyUiSettings();
+loadNetworkAccessInfo();
 loadLyrics();
 syncOffsetValue();
 syncVisualIntensityValue();

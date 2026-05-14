@@ -3,6 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#090a0d" />
+    <meta
+      name="description"
+      content="Lyric Veil 是一个适合桌面、投屏和移动端显示的沉浸式 QQ 音乐歌词舞台。"
+    />
     <title>Lyric Veil</title>
     <link rel="stylesheet" href="/src/styles.css" />
   </head>
@@ -22,7 +27,7 @@
       <div class="ambient"></div>
       <div class="background-veil" id="backgroundVeil" aria-hidden="true"></div>
 
-      <section class="lyrics">
+      <section class="lyrics" aria-label="歌词舞台">
         <p class="song-meta" id="songMeta">Lyric Veil</p>
         <div class="lyric-switcher" id="lyricSwitcher">
           <h1 class="current-line" data-lyric-slot="0"></h1>
@@ -32,11 +37,11 @@
         <div class="line-stack" id="lineStack"></div>
       </section>
 
-      <aside class="control-panel" id="controlPanel">
+      <aside class="control-panel" id="controlPanel" aria-label="控制面板">
         <div class="panel-head">
           <div>
             <p class="eyebrow">Fullscreen Lyrics</p>
-            <h2>歌词幕布</h2>
+            <h2>歌词舞台</h2>
           </div>
           <button class="icon-button" id="togglePanel" type="button" aria-label="收起面板">-</button>
         </div>
@@ -45,7 +50,7 @@
           <div class="cover-art" aria-hidden="true">LV</div>
           <div class="metadata">
             <input id="songTitle" class="minimal-input title" value="未命名歌曲" aria-label="歌曲" />
-            <input id="artistName" class="minimal-input artist" value="等待播放" aria-label="艺人" />
+            <input id="artistName" class="minimal-input artist" value="等待播放" aria-label="歌手" />
           </div>
         </header>
 
@@ -53,8 +58,17 @@
           <button id="syncQQMusic" class="hidden-action" type="button" title="读取 QQ 音乐">QQ</button>
           <button id="followQQMusic" class="hidden-action" type="button" title="跟随播放">跟随</button>
           <button id="autoLyrics" class="hidden-action" type="button" title="自动查找 LRC">LRC</button>
-          <button id="searchAigeci" type="button" title="打开爱歌词搜索">歌词站</button>
+          <button id="searchAigeci" type="button" title="打开歌词搜索站">歌词站</button>
         </nav>
+
+        <div class="remote-card" id="remoteCard">
+          <div>
+            <p class="eyebrow">Second Screen</p>
+            <strong>手机 / iPad 投屏访问</strong>
+            <span id="remoteUrl">正在检测局域网地址...</span>
+          </div>
+          <button id="copyRemoteUrl" type="button">复制</button>
+        </div>
 
         <div class="status-box" id="statusBox" data-status-kind="idle">
           <span class="status-pill" id="statusPill">待命</span>

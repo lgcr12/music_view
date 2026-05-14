@@ -1,6 +1,7 @@
 const http = require("http");
 const https = require("https");
 const fs = require("fs/promises");
+const os = require("os");
 const path = require("path");
 const { execFile } = require("child_process");
 
@@ -46,6 +47,31 @@ function runCommand(command, args) {
       resolve(error ? "" : stdout.trim());
     });
   });
+}
+
+function getNetworkAccessInfo() {
+  const urls = [];
+  const interfaces = os.networkInterfaces();
+
+  for (const [name, addresses] of Object.entries(interfaces)) {
+    for (const address of addresses || []) {
+      if (address.family !== "IPv4" || address.internal) continue;
+      if (address.address.startsWith("169.254.")) continue;
+      urls.push({
+        name,
+        address: address.address,
+        url: `http://${address.address}:${PORT}`
+      });
+    }
+  }
+
+  const preferred = urls.find((item) => /^192\.168\.|^10\.|^172\.(1[6-9]|2\d|3[0-1])\./.test(item.address)) || urls[0] || null;
+  return {
+    port: PORT,
+    local: `http://localhost:${PORT}`,
+    preferred,
+    urls
+  };
 }
 
 function runCommandDetailed(command, args, timeout = 5000) {
@@ -756,6 +782,11 @@ async function route(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   if (url.pathname === "/api/now-playing" && req.method === "GET") {
     sendJson(res, 200, await getCrossPlatformNowPlaying());
+    return;
+  }
+
+  if (url.pathname === "/api/network" && req.method === "GET") {
+    sendJson(res, 200, getNetworkAccessInfo());
     return;
   }
 
