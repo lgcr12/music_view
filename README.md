@@ -21,6 +21,29 @@ Lyric Veil 是一个面向桌面播放和投屏场景的全屏歌词展示页。
 
 需要先安装 Node.js。
 
+推荐使用一键安装脚本：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Install-LyricVeil.ps1
+```
+
+安装脚本会完成：
+
+- 检查 Node.js
+- 安装 npm 依赖
+- 创建桌面快捷方式
+- 创建开始菜单快捷方式
+- 安装 QQ 音乐启动监听任务
+- 启动本地服务并打开页面
+
+卸载：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Uninstall-LyricVeil.ps1
+```
+
+也可以手动运行：
+
 ```powershell
 npm install
 $env:PORT="8000"

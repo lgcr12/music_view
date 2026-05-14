@@ -3,6 +3,9 @@ const els = {
   backgroundVideo: document.querySelector("#backgroundVideo"),
   backgroundImage: document.querySelector("#backgroundImage"),
   visualCanvas: document.querySelector("#visualCanvas"),
+  trackTransition: document.querySelector("#trackTransition"),
+  transitionTitle: document.querySelector("#transitionTitle"),
+  transitionArtist: document.querySelector("#transitionArtist"),
   panel: document.querySelector("#controlPanel"),
   showPanel: document.querySelector("#showPanel"),
   togglePanel: document.querySelector("#togglePanel"),
@@ -87,6 +90,7 @@ let lyricsSaveTimerId = 0;
 let presentationModeEnabled = false;
 let panelHideTimerId = 0;
 let emptyStateKind = "waiting";
+let trackTransitionTimerId = 0;
 
 const LYRICS_CACHE_STORAGE_KEY = "lyric-veil:lrc-cache:v1";
 const UI_SETTINGS_STORAGE_KEY = "lyric-veil:ui-settings:v1";
@@ -118,6 +122,21 @@ function setStatus(kind, text, label = "") {
 
 function setStageCssVar(name, value) {
   document.documentElement.style.setProperty(name, value);
+}
+
+function triggerTrackTransition(track) {
+  if (!els.trackTransition || !track?.title) return;
+
+  window.clearTimeout(trackTransitionTimerId);
+  els.transitionTitle.textContent = track.title;
+  els.transitionArtist.textContent = track.artist || "QQ 音乐";
+  els.stage.classList.remove("track-changing");
+  void els.trackTransition.offsetWidth;
+  els.stage.classList.add("track-changing");
+
+  trackTransitionTimerId = window.setTimeout(() => {
+    els.stage.classList.remove("track-changing");
+  }, 1800);
 }
 
 function setPlaybackVisualState() {
@@ -1438,9 +1457,13 @@ async function syncQQMusic() {
 function applyTrack(track) {
   const previousKey = trackKey(currentTrack);
   const nextKey = trackKey(track);
+  const isTrackChange = Boolean(previousKey && nextKey && nextKey !== previousKey);
   els.songTitle.value = track.title;
   els.artistName.value = track.artist || "QQ Music";
   currentTrack = track;
+  if (isTrackChange) {
+    triggerTrackTransition(track);
+  }
   syncMeta();
   const cachedLyrics = nextKey !== previousKey ? useCachedLyrics(track.title, track.artist || "QQ Music") : false;
 
