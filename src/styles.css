@@ -49,7 +49,7 @@ button {
   min-height: 100dvh;
   position: relative;
   display: grid;
-  place-items: center;
+  place-items: start center;
   padding: max(40px, env(safe-area-inset-top)) max(40px, env(safe-area-inset-right)) max(40px, env(safe-area-inset-bottom)) max(40px, env(safe-area-inset-left));
   isolation: isolate;
   transition: filter 500ms var(--stage-ease);
@@ -182,10 +182,11 @@ button {
   align-items: center;
   display: grid;
   gap: 0;
-  grid-template-rows: minmax(76px, auto) clamp(190px, 24vh, 280px) clamp(84px, 10vh, 128px);
+  grid-template-rows: minmax(56px, auto) clamp(180px, 23vh, 260px) clamp(88px, 11vh, 132px);
   justify-self: center;
-  min-height: min(72vh, 860px);
-  padding: clamp(28px, 5vw, 54px);
+  margin-top: clamp(18px, 5vh, 70px);
+  min-height: min(64vh, 760px);
+  padding: clamp(18px, 3.6vw, 42px);
   width: min(1320px, 92vw);
   text-align: center;
   position: relative;
@@ -1210,8 +1211,9 @@ input[type="range"] {
   }
 
   .lyrics {
-    grid-template-rows: minmax(56px, auto) minmax(180px, 42dvh) minmax(72px, 16dvh);
-    min-height: 78dvh;
+    grid-template-rows: minmax(48px, auto) minmax(170px, 38dvh) minmax(78px, 15dvh);
+    margin-top: clamp(10px, 3dvh, 28px);
+    min-height: 70dvh;
     padding: 18px 6px;
     width: min(94vw, 720px);
   }
@@ -1266,6 +1268,7 @@ input[type="range"] {
 
   .lyrics {
     grid-template-rows: minmax(42px, auto) minmax(130px, 44dvh) minmax(44px, 12dvh);
+    margin-top: 0;
     min-height: 90dvh;
     padding: 8px 18px;
   }
