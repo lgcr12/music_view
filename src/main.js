@@ -50,6 +50,8 @@ const els = {
   lyricShadow: document.querySelector("#lyricShadow"),
   lyricShadowValue: document.querySelector("#lyricShadowValue"),
   fontSize: document.querySelector("#fontSize"),
+  lyricY: document.querySelector("#lyricY"),
+  lyricYValue: document.querySelector("#lyricYValue"),
   offset: document.querySelector("#offset"),
   offsetValue: document.querySelector("#offsetValue"),
   lyricsEarlier: document.querySelector("#lyricsEarlier"),
@@ -233,6 +235,7 @@ function saveUiSettings() {
     lyricStroke: els.lyricStroke.value,
     lyricShadow: els.lyricShadow.value,
     fontSize: els.fontSize.value,
+    lyricY: els.lyricY.value,
     offset: els.offset.value,
     visualStyle: els.visualStyle.value,
     backgroundMode: els.backgroundMode.value
@@ -253,6 +256,7 @@ function applyUiSettings() {
     ["lyricStroke", els.lyricStroke],
     ["lyricShadow", els.lyricShadow],
     ["fontSize", els.fontSize],
+    ["lyricY", els.lyricY],
     ["offset", els.offset],
     ["visualStyle", els.visualStyle],
     ["backgroundMode", els.backgroundMode]
@@ -275,7 +279,8 @@ function applyPreset(name) {
       lyricStroke: "1.0",
       lyricShadow: "84",
       lyricEffect: "fade",
-      fontStyle: "cinema"
+      fontStyle: "cinema",
+      lyricY: "-8"
     },
     stage: {
       backgroundBrightness: "78",
@@ -285,7 +290,8 @@ function applyPreset(name) {
       lyricStroke: "1.4",
       lyricShadow: "100",
       lyricEffect: "typewriter",
-      fontStyle: "modern"
+      fontStyle: "modern",
+      lyricY: "-6"
     },
     soft: {
       backgroundBrightness: "96",
@@ -295,7 +301,8 @@ function applyPreset(name) {
       lyricStroke: "0.5",
       lyricShadow: "68",
       lyricEffect: "rise",
-      fontStyle: "soft"
+      fontStyle: "soft",
+      lyricY: "-10"
     }
   };
 
@@ -317,6 +324,7 @@ function applyPreset(name) {
   syncKaraokeColor();
   syncLyricStrokeValue();
   syncLyricShadowValue();
+  syncLyricYValue();
   document.documentElement.style.setProperty("--lyric-size", `${els.fontSize.value}px`);
   fitCurrentLine();
   saveUiSettings();
@@ -1524,6 +1532,12 @@ function syncLyricShadowValue() {
   setStageCssVar("--lyric-shadow-strength", `${Number(els.lyricShadow.value) / 100}`);
 }
 
+function syncLyricYValue() {
+  const value = Number(els.lyricY.value);
+  els.lyricYValue.textContent = `${value > 0 ? "+" : ""}${value}vh`;
+  setStageCssVar("--lyric-y", `${value}vh`);
+}
+
 function syncKaraokeColor() {
   const palettes = {
     gold: ["#ffd978", "rgba(255, 216, 120, 0.3)"],
@@ -1874,6 +1888,7 @@ els.backgroundDim.addEventListener("input", syncBackgroundDimValue);
 els.karaokeColor.addEventListener("change", syncKaraokeColor);
 els.lyricStroke.addEventListener("input", syncLyricStrokeValue);
 els.lyricShadow.addEventListener("input", syncLyricShadowValue);
+els.lyricY.addEventListener("input", syncLyricYValue);
 els.backgroundMode.addEventListener("change", syncBackgroundMode);
 els.visualStyle.addEventListener("change", () => {
   fireworkBursts = [];
@@ -1918,6 +1933,7 @@ document.addEventListener("keydown", (event) => {
   els.karaokeColor,
   els.lyricStroke,
   els.lyricShadow,
+  els.lyricY,
   els.fontSize,
   els.offset,
   els.visualStyle,
@@ -1940,6 +1956,7 @@ syncBackgroundDimValue();
 syncKaraokeColor();
 syncLyricStrokeValue();
 syncLyricShadowValue();
+syncLyricYValue();
 syncSceneMode();
 syncBackgroundMode();
 updateEmptyState();
