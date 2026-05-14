@@ -61,6 +61,12 @@
           <p class="status-line" id="syncStatus">读取歌曲、自动找词和背景导入状态会显示在这里。</p>
         </div>
 
+        <div class="preset-row" aria-label="快速预设">
+          <button type="button" class="preset-button" data-preset="clear">清晰</button>
+          <button type="button" class="preset-button" data-preset="stage">舞台</button>
+          <button type="button" class="preset-button" data-preset="soft">氛围</button>
+        </div>
+
         <div class="toolbar">
           <button id="playPause" type="button">播放</button>
           <button id="fullscreen" type="button">全屏</button>
@@ -107,9 +113,9 @@
             <label>
               <span class="label-row">
                 背景亮度
-                <output id="backgroundBrightnessValue">78%</output>
+                <output id="backgroundBrightnessValue">92%</output>
               </span>
-              <input id="backgroundBrightness" type="range" min="35" max="120" value="78" />
+              <input id="backgroundBrightness" type="range" min="35" max="120" value="92" />
             </label>
             <label>
               <span class="label-row">
@@ -121,9 +127,43 @@
             <label>
               <span class="label-row">
                 暗罩强度
-                <output id="backgroundDimValue">38%</output>
+                <output id="backgroundDimValue">22%</output>
               </span>
-              <input id="backgroundDim" type="range" min="0" max="85" value="38" />
+              <input id="backgroundDim" type="range" min="0" max="85" value="22" />
+            </label>
+            <label>
+              歌词效果
+              <select id="lyricEffect">
+                <option value="char">逐字浮现</option>
+                <option value="word">逐词浮现</option>
+                <option value="fade">整句淡入</option>
+                <option value="typewriter">打字机</option>
+                <option value="rise">轻微上浮</option>
+              </select>
+            </label>
+            <label>
+              扫光颜色
+              <select id="karaokeColor">
+                <option value="gold">金色</option>
+                <option value="cyan">蓝色</option>
+                <option value="rose">玫红</option>
+                <option value="green">绿色</option>
+                <option value="white">白色</option>
+              </select>
+            </label>
+            <label>
+              <span class="label-row">
+                描边强度
+                <output id="lyricStrokeValue">0.8px</output>
+              </span>
+              <input id="lyricStroke" type="range" min="0" max="2.4" step="0.1" value="0.8" />
+            </label>
+            <label>
+              <span class="label-row">
+                阴影强度
+                <output id="lyricShadowValue">82%</output>
+              </span>
+              <input id="lyricShadow" type="range" min="0" max="100" value="82" />
             </label>
             <label>
               字号

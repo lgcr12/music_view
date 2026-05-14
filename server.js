@@ -17,6 +17,7 @@ const WINDOWS_RUNTIME_WINRT_DLL = "C:\\Windows\\Microsoft.NET\\Framework64\\v4.0
 const WINDOWS_WINMD = "C:\\Program Files (x86)\\Windows Kits\\10\\UnionMetadata\\10.0.26100.0\\Windows.winmd";
 const LRCLIB_BASE_URL = "https://lrclib.net/api";
 const LYRICS_OVH_BASE_URL = "https://api.lyrics.ovh/v1";
+const LOCAL_LYRICS_DIR = "E:\\播放\\歌词";
 const USER_AGENT = "LyricVeil/1.0 (local lyrics overlay)";
 
 const MIME_TYPES = {
@@ -469,6 +470,142 @@ function scoreLyricResult(result, title, artist, duration) {
   return score;
 }
 
+function stripLocalLyricsPrefix(fileName) {
+  return String(fileName || "")
+    .replace(/\.lrc$/i, "")
+    .replace(/^爱歌词\s*aigeci\.com\s*-\s*/i, "")
+    .replace(/^酷歌词\s*kugeci\.com[_\s-]*/i, "")
+    .trim();
+}
+
+function splitLocalLyricsNameParts(fileName) {
+  const cleaned = stripLocalLyricsPrefix(fileName)
+    .replace(/[_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const dashParts = cleaned
+    .split(/\s*-\s*/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (dashParts.length >= 2) {
+    return {
+      artist: dashParts.slice(0, -1).join(" "),
+      title: dashParts[dashParts.length - 1]
+    };
+  }
+
+  return {
+    artist: "",
+    title: cleaned
+  };
+}
+
+function scoreLocalLyricsFile(fileName, title, artist) {
+  const normalizedName = normalizeSearchString(stripLocalLyricsPrefix(fileName)).toLowerCase();
+  const titleVariants = buildTitleVariants(title).map((value) => value.toLowerCase());
+  const artistVariants = buildArtistVariants(artist).map((value) => value.toLowerCase());
+  const combinedVariants = unique([
+    ...titleVariants.map((value) => `${value} ${artistVariants[0] || ""}`.trim()),
+    ...titleVariants.map((value) => `${artistVariants[0] || ""} ${value}`.trim())
+  ]).filter(Boolean);
+  const parts = splitLocalLyricsNameParts(fileName);
+  const parsedTitle = normalizeSearchString(parts.title).toLowerCase();
+  const parsedArtist = normalizeSearchString(parts.artist).toLowerCase();
+  let score = 0;
+
+  for (const titleVariant of titleVariants) {
+    score += scoreTextMatch(normalizedName, titleVariant);
+    score += scoreTextMatch(parsedTitle, titleVariant) * 1.6;
+  }
+
+  for (const artistVariant of artistVariants) {
+    score += scoreTextMatch(normalizedName, artistVariant) * 0.6;
+    score += scoreTextMatch(parsedArtist, artistVariant) * 1.2;
+  }
+
+  for (const combinedVariant of combinedVariants) {
+    if (normalizedName === combinedVariant) score += 60;
+    else if (normalizedName.includes(combinedVariant)) score += 36;
+  }
+
+  if (parsedTitle && titleVariants.includes(parsedTitle)) score += 42;
+  if (parsedArtist && artistVariants.includes(parsedArtist)) score += 20;
+  return score;
+}
+
+function hasLrcTimeTags(content) {
+  return /^\s*\[(\d{1,2}):(\d{2})(?:[.:]\d{1,3})?\]/m.test(String(content || ""));
+}
+
+function countDecodeArtifacts(content) {
+  return (String(content || "").match(/�/g) || []).length;
+}
+
+function decodeLyricsBuffer(buffer) {
+  const utf8Text = buffer.toString("utf8");
+  if (!countDecodeArtifacts(utf8Text)) {
+    return utf8Text;
+  }
+
+  try {
+    const gb18030Text = new TextDecoder("gb18030").decode(buffer);
+    if (countDecodeArtifacts(gb18030Text) <= countDecodeArtifacts(utf8Text)) {
+      return gb18030Text;
+    }
+  } catch {}
+
+  return utf8Text;
+}
+
+async function searchLocalLyrics({ title, artist }) {
+  let entries;
+  try {
+    entries = await fs.readdir(LOCAL_LYRICS_DIR, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+
+  const lrcFiles = entries
+    .filter((entry) => entry.isFile() && /\.lrc$/i.test(entry.name))
+    .map((entry) => ({
+      name: entry.name,
+      score: scoreLocalLyricsFile(entry.name, title, artist)
+    }))
+    .filter((entry) => entry.score >= 26)
+    .sort((a, b) => b.score - a.score);
+
+  const best = lrcFiles[0];
+  if (!best) return null;
+
+  const filePath = path.join(LOCAL_LYRICS_DIR, best.name);
+  let content = "";
+  try {
+    const buffer = await fs.readFile(filePath);
+    content = decodeLyricsBuffer(buffer);
+  } catch {
+    return null;
+  }
+
+  const lyrics = String(content || "").replace(/^\uFEFF/, "").trim();
+  if (!lyrics) return null;
+
+  const parts = splitLocalLyricsNameParts(best.name);
+  return {
+    found: true,
+    title: parts.title || title,
+    artist: parts.artist || artist,
+    duration: null,
+    syncedLyrics: hasLrcTimeTags(lyrics) ? lyrics : "",
+    plainLyrics: hasLrcTimeTags(lyrics) ? "" : lyrics,
+    instrumental: false,
+    source: "Local Folder",
+    fileName: best.name,
+    filePath
+  };
+}
+
 async function searchLyricsCandidates({ title, artist, duration }) {
   const titleVariants = buildTitleVariants(title);
   const artistVariants = buildArtistVariants(artist);
@@ -571,6 +708,9 @@ async function getLyrics(url) {
   if (!title.trim()) {
     return { found: false, message: "缺少歌曲名，无法自动搜索歌词。" };
   }
+
+  const localLyrics = await searchLocalLyrics({ title, artist });
+  if (localLyrics) return localLyrics;
 
   const candidates = await searchLyricsCandidates({ title, artist, duration });
   if (!candidates.length) {

@@ -29,6 +29,8 @@ const els = {
   backgroundMode: document.querySelector("#backgroundMode"),
   videoFile: document.querySelector("#videoFile"),
   visualStyle: document.querySelector("#visualStyle"),
+  lyricEffect: document.querySelector("#lyricEffect"),
+  karaokeColor: document.querySelector("#karaokeColor"),
   visualIntensity: document.querySelector("#visualIntensity"),
   visualIntensityValue: document.querySelector("#visualIntensityValue"),
   backgroundBrightness: document.querySelector("#backgroundBrightness"),
@@ -37,6 +39,10 @@ const els = {
   backgroundBlurValue: document.querySelector("#backgroundBlurValue"),
   backgroundDim: document.querySelector("#backgroundDim"),
   backgroundDimValue: document.querySelector("#backgroundDimValue"),
+  lyricStroke: document.querySelector("#lyricStroke"),
+  lyricStrokeValue: document.querySelector("#lyricStrokeValue"),
+  lyricShadow: document.querySelector("#lyricShadow"),
+  lyricShadowValue: document.querySelector("#lyricShadowValue"),
   fontSize: document.querySelector("#fontSize"),
   offset: document.querySelector("#offset"),
   offsetValue: document.querySelector("#offsetValue"),
@@ -51,6 +57,7 @@ let playing = false;
 let activeIndex = 0;
 let renderedLineIndex = -1;
 let activeLyricSlot = 0;
+let lyricSlotClearTimerId = 0;
 let frameId = 0;
 let followQQMusic = false;
 let followTimerId = 0;
@@ -73,6 +80,7 @@ let presentationModeEnabled = false;
 let panelHideTimerId = 0;
 
 const LYRICS_CACHE_STORAGE_KEY = "lyric-veil:lrc-cache:v1";
+const UI_SETTINGS_STORAGE_KEY = "lyric-veil:ui-settings:v1";
 const MAX_LYRICS_CACHE_ENTRIES = 240;
 const VIDEO_BACKGROUND_META_KEY = "lyric-veil:video-background-meta:v1";
 const VIDEO_DB_NAME = "lyric-veil-assets";
@@ -101,6 +109,130 @@ function setStatus(kind, text, label = "") {
 
 function setStageCssVar(name, value) {
   document.documentElement.style.setProperty(name, value);
+}
+
+function ensureGhostLine() {
+  let ghostLine = els.lineStack.querySelector(".ghost-line");
+  if (!ghostLine) {
+    ghostLine = document.createElement("p");
+    ghostLine.className = "ghost-line empty";
+    ghostLine.textContent = " ";
+    els.lineStack.appendChild(ghostLine);
+  }
+  return ghostLine;
+}
+
+function updateNextLinePreview(index = activeIndex) {
+  const nextText = lines[index + 1]?.text || "";
+  if (els.lineStack.dataset.text === nextText) return;
+  els.lineStack.dataset.text = nextText;
+  const ghostLine = ensureGhostLine();
+  ghostLine.textContent = nextText || " ";
+  ghostLine.classList.toggle("empty", !nextText);
+}
+
+function readUiSettings() {
+  try {
+    return JSON.parse(localStorage.getItem(UI_SETTINGS_STORAGE_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function saveUiSettings() {
+  const settings = {
+    lyricEffect: els.lyricEffect.value,
+    visualIntensity: els.visualIntensity.value,
+    backgroundBrightness: els.backgroundBrightness.value,
+    backgroundBlur: els.backgroundBlur.value,
+    backgroundDim: els.backgroundDim.value,
+    karaokeColor: els.karaokeColor.value,
+    lyricStroke: els.lyricStroke.value,
+    lyricShadow: els.lyricShadow.value,
+    fontSize: els.fontSize.value,
+    offset: els.offset.value,
+    visualStyle: els.visualStyle.value,
+    backgroundMode: els.backgroundMode.value
+  };
+  localStorage.setItem(UI_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+}
+
+function applyUiSettings() {
+  const settings = readUiSettings();
+  const pairs = [
+    ["lyricEffect", els.lyricEffect],
+    ["visualIntensity", els.visualIntensity],
+    ["backgroundBrightness", els.backgroundBrightness],
+    ["backgroundBlur", els.backgroundBlur],
+    ["backgroundDim", els.backgroundDim],
+    ["karaokeColor", els.karaokeColor],
+    ["lyricStroke", els.lyricStroke],
+    ["lyricShadow", els.lyricShadow],
+    ["fontSize", els.fontSize],
+    ["offset", els.offset],
+    ["visualStyle", els.visualStyle],
+    ["backgroundMode", els.backgroundMode]
+  ];
+
+  for (const [key, el] of pairs) {
+    if (settings[key] !== undefined) {
+      el.value = String(settings[key]);
+    }
+  }
+}
+
+function applyPreset(name) {
+  const presets = {
+    clear: {
+      backgroundBrightness: "108",
+      backgroundBlur: "0",
+      backgroundDim: "10",
+      karaokeColor: "gold",
+      lyricStroke: "1.0",
+      lyricShadow: "84",
+      lyricEffect: "fade"
+    },
+    stage: {
+      backgroundBrightness: "78",
+      backgroundBlur: "4",
+      backgroundDim: "38",
+      karaokeColor: "gold",
+      lyricStroke: "1.4",
+      lyricShadow: "100",
+      lyricEffect: "typewriter"
+    },
+    soft: {
+      backgroundBrightness: "96",
+      backgroundBlur: "10",
+      backgroundDim: "24",
+      karaokeColor: "cyan",
+      lyricStroke: "0.5",
+      lyricShadow: "68",
+      lyricEffect: "rise"
+    }
+  };
+
+  const preset = presets[name];
+  if (!preset) return;
+
+  Object.entries(preset).forEach(([key, value]) => {
+    if (els[key]) {
+      els[key].value = value;
+    }
+  });
+
+  syncLyricEffect();
+  syncVisualIntensityValue();
+  syncBackgroundBrightnessValue();
+  syncBackgroundBlurValue();
+  syncBackgroundDimValue();
+  syncKaraokeColor();
+  syncLyricStrokeValue();
+  syncLyricShadowValue();
+  document.documentElement.style.setProperty("--lyric-size", `${els.fontSize.value}px`);
+  fitCurrentLine();
+  saveUiSettings();
+  setStatus("success", `Preset applied: ${name}.`, "Preset");
 }
 
 function openAssetDb() {
@@ -365,25 +497,126 @@ function fitCurrentLine() {
 function fitLyricSlot(slot, defaultSize = Number(els.fontSize.value)) {
   let size = defaultSize;
   const minSize = 28;
+  const maxHeightFactor = 2.46;
 
   slot.style.fontSize = `${size}px`;
-  while (slot.scrollWidth > slot.clientWidth && size > minSize) {
+  while (
+    (slot.scrollWidth > slot.clientWidth || slot.scrollHeight > size * maxHeightFactor) &&
+    size > minSize
+  ) {
     size -= 2;
     slot.style.fontSize = `${size}px`;
   }
 }
 
-function renderLyricText(slot, text) {
-  slot.textContent = "";
-  const fragment = document.createDocumentFragment();
-  [...text].forEach((char, index) => {
+function appendLyricUnits(target, text, options = {}) {
+  const effect = els.lyricEffect?.value || "char";
+  const animate = options.animate !== false;
+
+  if (effect === "fade") {
     const span = document.createElement("span");
     span.className = "lyric-char";
-    span.style.setProperty("--char-delay", `${Math.min(index * 18, 420)}ms`);
-    span.textContent = char === " " ? "\u00a0" : char;
-    fragment.appendChild(span);
+    span.textContent = text;
+    if (!animate) {
+      span.classList.add("no-animate");
+    }
+    target.appendChild(span);
+    return;
+  }
+
+  const units = effect === "word"
+    ? text.match(/\S+\s*/g) || [text]
+    : [...text];
+
+  units.forEach((unit, index) => {
+    const span = document.createElement("span");
+    span.className = "lyric-char";
+    if (animate) {
+      const delayStep = effect === "word" ? 70 : effect === "typewriter" ? 34 : 18;
+      span.style.setProperty("--char-delay", `${Math.min(index * delayStep, 520)}ms`);
+    } else {
+      span.classList.add("no-animate");
+    }
+    span.textContent = effect === "char"
+      ? (unit === " " ? "\u00a0" : unit)
+      : unit.replace(/ /g, "\u00a0");
+    target.appendChild(span);
   });
-  slot.appendChild(fragment);
+}
+
+function splitLyricRows(text) {
+  const value = String(text || "");
+  const chars = [...value];
+  if (chars.length <= 18) return [value];
+
+  const middle = Math.floor(chars.length / 2);
+  const candidates = [];
+  for (let i = 1; i < chars.length - 1; i += 1) {
+    if (/[\s,，、。.!！？?]/.test(chars[i])) {
+      candidates.push(i + 1);
+    }
+  }
+
+  const splitAt = candidates.length
+    ? candidates.sort((a, b) => Math.abs(a - middle) - Math.abs(b - middle))[0]
+    : middle;
+  const first = chars.slice(0, splitAt).join("").trim();
+  const second = chars.slice(splitAt).join("").trim();
+  return second ? [first, second] : [value];
+}
+
+function appendLyricRows(target, rows, options = {}) {
+  rows.forEach((rowText, rowIndex) => {
+    const row = document.createElement("span");
+    row.className = options.sweep ? "lyric-sweep-row" : "lyric-row";
+    row.dataset.rowIndex = String(rowIndex);
+    appendLyricUnits(row, rowText, options);
+    target.appendChild(row);
+  });
+}
+
+function renderLyricText(slot, text) {
+  slot.textContent = "";
+  const rows = slot.classList.contains("current-line") ? splitLyricRows(text) : [text];
+  const baseLayer = document.createElement("span");
+  baseLayer.className = "lyric-layer lyric-base";
+  appendLyricRows(baseLayer, rows);
+  slot.appendChild(baseLayer);
+
+  if (slot.classList.contains("current-line")) {
+    const sweepLayer = document.createElement("span");
+    sweepLayer.className = "lyric-layer lyric-sweep";
+    appendLyricRows(sweepLayer, rows, { animate: false, sweep: true });
+    slot.appendChild(sweepLayer);
+  }
+}
+
+function setKaraokeProgress(index = activeIndex, now = currentTime()) {
+  const slot = els.lyricSlots[activeLyricSlot];
+  if (!slot) return;
+
+  const currentLine = lines[index];
+  const nextLine = lines[index + 1];
+  let progress = 0;
+
+  if (currentLine && nextLine && nextLine.time > currentLine.time) {
+    progress = (now - currentLine.time) / (nextLine.time - currentLine.time);
+  } else if (currentLine && now >= currentLine.time) {
+    progress = 1;
+  }
+
+  progress = Math.max(0, Math.min(progress, 1));
+  const rounded = Math.round(progress * 1000) / 1000;
+  if (slot.dataset.karaokeProgress === String(rounded)) return;
+  slot.dataset.karaokeProgress = String(rounded);
+  const sweepRows = [...slot.querySelectorAll(".lyric-sweep-row")];
+  const rowCount = Math.max(1, sweepRows.length);
+  sweepRows.forEach((row, rowIndex) => {
+    const rowStart = rowIndex / rowCount;
+    const rowEnd = (rowIndex + 1) / rowCount;
+    const rowProgress = Math.max(0, Math.min((rounded - rowStart) / (rowEnd - rowStart), 1));
+    row.style.setProperty("--row-progress", `${(rowProgress * 100).toFixed(1)}%`);
+  });
 }
 
 function setLine(index) {
@@ -393,16 +626,24 @@ function setLine(index) {
   renderLyricText(slot, current);
   els.currentLineLive.textContent = current;
   fitLyricSlot(slot);
-  els.lineStack.innerHTML = "";
+  updateNextLinePreview(index);
+  activeIndex = index;
+  slot.dataset.karaokeProgress = "0";
+  slot.querySelectorAll(".lyric-sweep-row").forEach((row) => row.style.setProperty("--row-progress", "0%"));
+  setKaraokeProgress(index);
   renderedLineIndex = index;
 }
 
 function renderLine(index) {
   const nextActiveIndex = Math.max(0, Math.min(index, lines.length - 1));
-  if (nextActiveIndex === renderedLineIndex) {
+  const currentSlot = els.lyricSlots[activeLyricSlot];
+  if (nextActiveIndex === renderedLineIndex && currentSlot?.textContent.trim()) {
+    updateNextLinePreview(nextActiveIndex);
+    setKaraokeProgress(nextActiveIndex);
     return;
   }
 
+  window.clearTimeout(lyricSlotClearTimerId);
   activeIndex = nextActiveIndex;
   const outgoingSlot = els.lyricSlots[activeLyricSlot];
   activeLyricSlot = 1 - activeLyricSlot;
@@ -410,6 +651,10 @@ function renderLine(index) {
   const incomingText = lines[activeIndex]?.text || "把歌词放到这里";
 
   renderLyricText(incomingSlot, incomingText);
+  outgoingSlot.dataset.karaokeProgress = "0";
+  incomingSlot.dataset.karaokeProgress = "0";
+  outgoingSlot.querySelectorAll(".lyric-sweep-row").forEach((row) => row.style.setProperty("--row-progress", "0%"));
+  incomingSlot.querySelectorAll(".lyric-sweep-row").forEach((row) => row.style.setProperty("--row-progress", "0%"));
   els.currentLineLive.textContent = incomingText;
   fitLyricSlot(incomingSlot);
   incomingSlot.classList.remove("exit", "active");
@@ -419,11 +664,14 @@ function renderLine(index) {
   outgoingSlot.classList.add("exit");
   incomingSlot.classList.remove("enter");
   incomingSlot.classList.add("active");
-  window.setTimeout(() => {
-    outgoingSlot.classList.remove("exit", "enter", "active");
-    outgoingSlot.textContent = "";
+  const slotToClear = outgoingSlot;
+  lyricSlotClearTimerId = window.setTimeout(() => {
+    if (slotToClear === els.lyricSlots[activeLyricSlot]) return;
+    slotToClear.classList.remove("exit", "enter", "active");
+    slotToClear.textContent = "";
   }, 620);
-  els.lineStack.innerHTML = "";
+  updateNextLinePreview(activeIndex);
+  setKaraokeProgress(activeIndex);
   renderedLineIndex = activeIndex;
 
   lyricPulse = 1;
@@ -468,7 +716,10 @@ function tick() {
     return now >= line.time && (!next || now < next.time);
   });
 
-  if (nextIndex >= 0 && nextIndex !== activeIndex) renderLine(nextIndex);
+  if (nextIndex >= 0) {
+    if (nextIndex !== activeIndex) renderLine(nextIndex);
+    setKaraokeProgress(nextIndex, now);
+  }
   frameId = requestAnimationFrame(tick);
 }
 
@@ -1169,6 +1420,29 @@ function syncBackgroundDimValue() {
   setStageCssVar("--background-dim", `${Number(els.backgroundDim.value) / 100}`);
 }
 
+function syncLyricStrokeValue() {
+  els.lyricStrokeValue.textContent = `${Number(els.lyricStroke.value).toFixed(1)}px`;
+  setStageCssVar("--lyric-stroke", `${els.lyricStroke.value}px`);
+}
+
+function syncLyricShadowValue() {
+  els.lyricShadowValue.textContent = `${els.lyricShadow.value}%`;
+  setStageCssVar("--lyric-shadow-strength", `${Number(els.lyricShadow.value) / 100}`);
+}
+
+function syncKaraokeColor() {
+  const palettes = {
+    gold: ["#ffd978", "rgba(255, 216, 120, 0.3)"],
+    cyan: ["#7de8ff", "rgba(125, 232, 255, 0.28)"],
+    rose: ["#ff8bbd", "rgba(255, 139, 189, 0.28)"],
+    green: ["#9cffb5", "rgba(156, 255, 181, 0.26)"],
+    white: ["#fff8ea", "rgba(255, 248, 234, 0.24)"]
+  };
+  const [color, glow] = palettes[els.karaokeColor.value] || palettes.gold;
+  setStageCssVar("--karaoke-color", color);
+  setStageCssVar("--karaoke-glow", glow);
+}
+
 function hidePanelForStage() {
   els.stage.classList.add("panel-hidden");
 }
@@ -1204,6 +1478,15 @@ function setPresentationMode(enabled) {
 
 function syncSceneMode() {
   els.stage.dataset.scene = els.visualStyle.value;
+}
+
+function syncLyricEffect() {
+  els.stage.dataset.lyricEffect = els.lyricEffect.value;
+  if (renderedLineIndex >= 0) {
+    const currentIndex = activeIndex;
+    renderedLineIndex = -1;
+    renderLine(currentIndex);
+  }
 }
 
 function syncBackgroundMode() {
@@ -1249,6 +1532,27 @@ function openAigeciSearch() {
   const url = `https://www.aigeci.com/search?author=${encodeURIComponent(title)}`;
   window.open(url, "_blank", "noopener,noreferrer");
   setStatus("idle", `Opened lyric search for ${title}.`, "Lyrics");
+}
+
+function countDecodeArtifacts(content) {
+  return (String(content || "").match(/�/g) || []).length;
+}
+
+async function readLyricsFile(file) {
+  const buffer = await file.arrayBuffer();
+  const utf8Text = new TextDecoder("utf-8").decode(buffer);
+  if (!countDecodeArtifacts(utf8Text)) {
+    return utf8Text;
+  }
+
+  try {
+    const gb18030Text = new TextDecoder("gb18030").decode(buffer);
+    if (countDecodeArtifacts(gb18030Text) <= countDecodeArtifacts(utf8Text)) {
+      return gb18030Text;
+    }
+  } catch {}
+
+  return utf8Text;
 }
 
 async function fetchLyricsForCurrentTrack(track = currentTrack) {
@@ -1384,7 +1688,7 @@ async function importLrcFile(event) {
   const file = event.target.files?.[0];
   if (!file) return;
 
-  els.lrcInput.value = await file.text();
+  els.lrcInput.value = await readLyricsFile(file);
   loadLyrics();
   rememberLyrics({
     title: currentTrack?.title || els.songTitle.value,
@@ -1433,6 +1737,9 @@ els.fullscreen.addEventListener("click", () => {
 
 els.togglePanel.addEventListener("click", () => togglePanel(true));
 els.showPanel.addEventListener("click", () => togglePanel(false));
+document.querySelectorAll("[data-preset]").forEach((button) => {
+  button.addEventListener("click", () => applyPreset(button.dataset.preset));
+});
 els.lrcInput.addEventListener("input", () => {
   loadLyrics();
   scheduleRememberCurrentLyrics();
@@ -1453,9 +1760,13 @@ els.offset.addEventListener("input", syncOffsetValue);
 els.lyricsEarlier.addEventListener("click", () => adjustLyricsOffset(300));
 els.lyricsLater.addEventListener("click", () => adjustLyricsOffset(-300));
 els.visualIntensity.addEventListener("input", syncVisualIntensityValue);
+els.lyricEffect.addEventListener("change", syncLyricEffect);
 els.backgroundBrightness.addEventListener("input", syncBackgroundBrightnessValue);
 els.backgroundBlur.addEventListener("input", syncBackgroundBlurValue);
 els.backgroundDim.addEventListener("input", syncBackgroundDimValue);
+els.karaokeColor.addEventListener("change", syncKaraokeColor);
+els.lyricStroke.addEventListener("input", syncLyricStrokeValue);
+els.lyricShadow.addEventListener("input", syncLyricShadowValue);
 els.backgroundMode.addEventListener("change", syncBackgroundMode);
 els.visualStyle.addEventListener("change", () => {
   fireworkBursts = [];
@@ -1490,12 +1801,35 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") togglePanel(false);
 });
 
+[
+  els.lyricEffect,
+  els.visualIntensity,
+  els.backgroundBrightness,
+  els.backgroundBlur,
+  els.backgroundDim,
+  els.karaokeColor,
+  els.lyricStroke,
+  els.lyricShadow,
+  els.fontSize,
+  els.offset,
+  els.visualStyle,
+  els.backgroundMode
+].forEach((el) => {
+  el.addEventListener("change", saveUiSettings);
+  el.addEventListener("input", saveUiSettings);
+});
+
+applyUiSettings();
 loadLyrics();
 syncOffsetValue();
 syncVisualIntensityValue();
+syncLyricEffect();
 syncBackgroundBrightnessValue();
 syncBackgroundBlurValue();
 syncBackgroundDimValue();
+syncKaraokeColor();
+syncLyricStrokeValue();
+syncLyricShadowValue();
 syncSceneMode();
 syncBackgroundMode();
 restoreBackgroundVideo();
